@@ -26,6 +26,12 @@
       </nav>
     </header>
 
+    <div class="mobile-note">
+      Tip: this page is mobile-friendly. <strong>System Control</strong>
+      (/backend) is the Node-RED flow editor and is best used on a desktop
+      browser.
+    </div>
+
     <main>
       <section class="cards">
         <article class="card primary">
@@ -68,7 +74,7 @@
           <h2>Power use over the last hour</h2>
           <span class="hint">Higher line = more electricity being drawn</span>
         </div>
-        <canvas id="trend"></canvas>
+        <div class="chart-wrap"><canvas id="trend"></canvas></div>
       </section>
 
       <section class="panel">
