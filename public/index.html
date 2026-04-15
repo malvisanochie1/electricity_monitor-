@@ -1,82 +1,93 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Electricity Usage Monitor</title>
-<link rel="stylesheet" href="style.css" />
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js" defer></script>
-<script src="app.js" defer></script>
-</head>
-<body>
-
-<header class="topbar">
-    <div class="brand">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Electricity Usage Monitor</title>
+    <link rel="stylesheet" href="style.css" />
+    <script
+      src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
+      defer
+    ></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
         <span class="bolt">&#9889;</span>
         <div>
-            <h1>Electricity Usage Monitor</h1>
-            <p class="tagline">Your home&rsquo;s electricity at a glance</p>
+          <h1>Electricity Usage Monitor</h1>
+          <p class="tagline">Your home&rsquo;s electricity at a glance</p>
         </div>
-    </div>
-    <nav>
+      </div>
+      <nav>
         <a class="link" href="/backend/ui">Technical Dashboard</a>
         <a class="link" href="/backend">System Control</a>
-    </nav>
-</header>
+      </nav>
+    </header>
 
-<main>
-
-    <section class="cards">
+    <main>
+      <section class="cards">
         <article class="card primary">
-            <h2>Right now</h2>
-            <p class="big" id="card-power">&mdash;</p>
-            <p class="unit">watts being used</p>
-            <p class="sub" id="card-updated">waiting for data&hellip;</p>
+          <h2>Right now</h2>
+          <p class="big" id="card-power">&mdash;</p>
+          <p class="unit">watts being used</p>
+          <p class="sub" id="card-updated">waiting for data&hellip;</p>
         </article>
 
         <article class="card">
-            <h2>Today</h2>
-            <p class="big" id="card-today">&mdash;</p>
-            <p class="unit">kWh used</p>
-            <p class="sub"><span id="card-today-cost">&mdash;</span> estimated cost</p>
+          <h2>Today</h2>
+          <p class="big" id="card-today">&mdash;</p>
+          <p class="unit">kWh used</p>
+          <p class="sub">
+            <span id="card-today-cost">&mdash;</span> estimated cost
+          </p>
         </article>
 
         <article class="card">
-            <h2>This week</h2>
-            <p class="big" id="card-week">&mdash;</p>
-            <p class="unit">kWh used</p>
-            <p class="sub"><span id="card-week-cost">&mdash;</span> estimated cost</p>
+          <h2>This week</h2>
+          <p class="big" id="card-week">&mdash;</p>
+          <p class="unit">kWh used</p>
+          <p class="sub">
+            <span id="card-week-cost">&mdash;</span> estimated cost
+          </p>
         </article>
 
         <article class="card">
-            <h2>This month</h2>
-            <p class="big" id="card-month">&mdash;</p>
-            <p class="unit">kWh used</p>
-            <p class="sub"><span id="card-month-cost">&mdash;</span> estimated cost</p>
+          <h2>This month</h2>
+          <p class="big" id="card-month">&mdash;</p>
+          <p class="unit">kWh used</p>
+          <p class="sub">
+            <span id="card-month-cost">&mdash;</span> estimated cost
+          </p>
         </article>
-    </section>
+      </section>
 
-    <section class="panel">
+      <section class="panel">
         <div class="panel-head">
-            <h2>Power use over the last hour</h2>
-            <span class="hint">Higher line = more electricity being drawn</span>
+          <h2>Power use over the last hour</h2>
+          <span class="hint">Higher line = more electricity being drawn</span>
         </div>
         <canvas id="trend"></canvas>
-    </section>
+      </section>
 
-    <section class="panel">
+      <section class="panel">
         <div class="panel-head">
-            <h2>Recent high-usage alerts</h2>
-            <span class="hint" id="alert-summary">no alerts in the last 24 hours</span>
+          <h2>Recent high-usage alerts</h2>
+          <span class="hint" id="alert-summary"
+            >no alerts in the last 24 hours</span
+          >
         </div>
         <ul id="alerts" class="alerts"></ul>
-    </section>
+      </section>
+    </main>
 
-</main>
-
-<footer>
-    <p>Electricity Usage Monitoring System &middot; <a href="/backend">system control panel</a></p>
-</footer>
-
-</body>
+    <footer>
+      <p>
+        Electricity Usage Monitoring System &middot;
+        <a href="/backend">system control panel</a>
+      </p>
+      <p>By KESHI PRECIOUS</p>
+    </footer>
+  </body>
 </html>
