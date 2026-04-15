@@ -18,10 +18,15 @@ module.exports = {
     flowFile: "flows.json",
     flowFilePretty: true,
 
-    // Load palette nodes (node-red-dashboard, node-red-node-sqlite) from the
-    // root node_modules so the deployment works without installing them into
-    // the userDir. They are declared as dependencies in the root package.json.
+    // Load palette nodes (node-red-dashboard) from the root node_modules so
+    // the deployment works without installing them into the userDir.
     nodesDir: [path.join(__dirname, "..", "node_modules")],
+
+    // Defensive: if a cached Render build still has node-red-node-sqlite
+    // lying around in node_modules, do not attempt to load it. The flow no
+    // longer uses SQLite; blocking the module prevents the editor from
+    // hanging on "Loading Nodes" while a failing native addon times out.
+    nodesExcludes: ["node-red-node-sqlite"],
 
     // Admin editor lives under /backend instead of /.
     httpAdminRoot: "/backend",
