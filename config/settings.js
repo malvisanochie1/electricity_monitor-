@@ -18,6 +18,11 @@ module.exports = {
     flowFile: "flows.json",
     flowFilePretty: true,
 
+    // Load palette nodes (node-red-dashboard, node-red-node-sqlite) from the
+    // root node_modules so the deployment works without installing them into
+    // the userDir. They are declared as dependencies in the root package.json.
+    nodesDir: [path.join(__dirname, "..", "node_modules")],
+
     // Admin editor lives under /backend instead of /.
     httpAdminRoot: "/backend",
 

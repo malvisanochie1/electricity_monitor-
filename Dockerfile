@@ -14,18 +14,10 @@ RUN npm install --omit=dev
 # 2) App source (Dockerfile, server.js, config/, scripts/, public/, flows/...).
 COPY . .
 
-# 3) Build a self-contained Node-RED userDir from scratch.
-#    No dependency on a committed .node-red/ folder.
-RUN mkdir -p /app/node-red-user \
- && cd /app/node-red-user \
- && npm init -y >/dev/null \
- && npm install --omit=dev \
-        node-red-dashboard@^3.6.6 \
-        node-red-node-sqlite@^2.0.0 \
- && cp /app/flows/electricity-monitor.json /app/node-red-user/flows.json
-
-# SQLite file lives here (ephemeral on Render free tier — resets on redeploy).
-RUN mkdir -p /app/data
+# 3) Pre-create userDir + data dir. server.js copies flows.json on startup
+#    and settings.js loads palette nodes from the root node_modules, so no
+#    per-image npm install is required here.
+RUN mkdir -p /app/node-red-user /app/data
 
 ENV NODE_ENV=production
 ENV NODE_RED_USER_DIR=/app/node-red-user

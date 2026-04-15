@@ -24,6 +24,8 @@
   "dependencies": {
     "aedes": "^0.51.3",
     "mqtt": "^5.15.1",
-    "node-red": "^4.1.8"
+    "node-red": "^4.1.8",
+    "node-red-dashboard": "^3.6.6",
+    "node-red-node-sqlite": "^2.0.0"
   }
 }
