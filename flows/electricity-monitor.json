@@ -253,6 +253,41 @@
         "wires": []
     },
     {
+        "id": "root.redirect.in",
+        "type": "http in",
+        "z": "tab.elec",
+        "name": "GET /",
+        "url": "/",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 160,
+        "y": 500,
+        "wires": [["root.redirect.fn"]]
+    },
+    {
+        "id": "root.redirect.fn",
+        "type": "function",
+        "z": "tab.elec",
+        "name": "302 -> /app/",
+        "func": "msg.statusCode = 302;\nmsg.headers = { Location: '/app/' };\nmsg.payload = '';\nreturn msg;",
+        "outputs": 1,
+        "x": 360,
+        "y": 500,
+        "wires": [["root.redirect.out"]]
+    },
+    {
+        "id": "root.redirect.out",
+        "type": "http response",
+        "z": "tab.elec",
+        "name": "respond",
+        "statusCode": "",
+        "headers": {},
+        "x": 560,
+        "y": 500,
+        "wires": []
+    },
+    {
         "id": "api.summary.in",
         "type": "http in",
         "z": "tab.elec",

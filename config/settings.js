@@ -41,11 +41,16 @@ module.exports = {
         { path: path.join(__dirname, "..", "public"), root: "/app" }
     ],
 
-    // Redirect bare "/" to the frontend so the root URL still works.
-    // Runs for any httpNode (flow-defined) request; only "/" is rewritten.
-    httpNodeMiddleware: function (req, res, next) {
-        if (req.path === "/" || req.path === "") {
-            return res.redirect(302, "/app/");
+    // Some lazy-loaded chunks of the Node-RED editor request tslib
+    // relative to the admin root (/backend/tslib.es6.js). Serve the real
+    // file from node_modules so the editor bundle finishes bootstrapping
+    // instead of stalling on a 404 for __extends / __awaiter helpers.
+    httpAdminMiddleware: function (req, res, next) {
+        if (req.path === "/tslib.es6.js" || req.path === "/tslib.js") {
+            const file = path.join(
+                __dirname, "..", "node_modules", "tslib", req.path.slice(1)
+            );
+            return res.sendFile(file, (err) => { if (err) next(); });
         }
         next();
     },
