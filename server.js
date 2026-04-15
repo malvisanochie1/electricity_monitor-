@@ -1,0 +1,51 @@
+/**
+ * Single-process entrypoint for cloud deployment (Render, Fly, etc.).
+ * Starts three things inside one container:
+ *   1) aedes MQTT broker on 127.0.0.1:1883 (internal only)
+ *   2) Node-RED on process.env.PORT (the only externally exposed port)
+ *   3) the fake smart-meter simulator, which publishes to the local broker
+ */
+const path   = require("path");
+const net    = require("net");
+const aedes  = require("aedes")();
+const { spawn } = require("child_process");
+
+const MQTT_PORT = 1883;
+const HTTP_PORT = process.env.PORT || 1880;
+
+// 1) MQTT broker — bind to loopback so it's not reachable from the internet.
+net.createServer(aedes.handle).listen(MQTT_PORT, "127.0.0.1", () => {
+    console.log(`[broker]   tcp://127.0.0.1:${MQTT_PORT}`);
+});
+aedes.on("client",           (c) => console.log("[broker]   + " + c.id));
+aedes.on("clientDisconnect", (c) => console.log("[broker]   - " + c.id));
+
+// 2) Node-RED — launched as a child process using the local install.
+const nodeRedBin = path.join(
+    __dirname, "node_modules", ".bin",
+    process.platform === "win32" ? "node-red.cmd" : "node-red"
+);
+const nr = spawn(nodeRedBin, [
+    "--settings", path.join(__dirname, "config",   "settings.js"),
+    "--userDir",  path.join(__dirname, ".node-red")
+], { stdio: "inherit", env: { ...process.env, PORT: HTTP_PORT } });
+
+nr.on("exit", (code) => {
+    console.log(`[node-red] exited with code ${code}`);
+    process.exit(code || 1);
+});
+
+// 3) Simulator — start after Node-RED has time to subscribe to the broker.
+setTimeout(() => {
+    const sim = spawn("node", [
+        path.join(__dirname, "scripts", "simulator.js"),
+        "--broker", "127.0.0.1",
+        "--meter",  process.env.METER_ID || "meter-01"
+    ], { stdio: "inherit" });
+    sim.on("exit", (code) => console.log(`[simulator] exited with code ${code}`));
+}, 10_000);
+
+// Graceful shutdown so Render's stop signals propagate.
+for (const sig of ["SIGINT", "SIGTERM"]) {
+    process.on(sig, () => { try { nr.kill(sig); } catch {} process.exit(0); });
+}

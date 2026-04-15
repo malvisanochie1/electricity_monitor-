@@ -1,0 +1,6 @@
+node_modules
+.node-red/node_modules
+data
+.git
+_archived_non_electricity
+*.log
