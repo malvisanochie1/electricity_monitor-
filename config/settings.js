@@ -1,13 +1,14 @@
 /**
  * Node-RED settings for the Electricity Usage Monitoring System.
  *
- * Launch Node-RED with this file to get the correct route layout:
- *     node-red --settings ./config/settings.js --userDir ./.node-red
+ * Route layout (kept non-overlapping so admin assets never collide with
+ * the static frontend, which previously caused /backend/*.js to fall
+ * through the public/ static middleware and return HTML 404s):
  *
- * Routes served by this configuration:
- *   /              user-facing landing dashboard (static files from ../public)
+ *   /              302 redirect -> /app/
+ *   /app/*         user-facing landing dashboard (static files from ../public)
  *   /api/*         JSON API consumed by the landing page (defined in the flow)
- *   /backend       Node-RED flow editor (admin)
+ *   /backend       Node-RED flow editor (admin) — owns this subtree exclusively
  *   /backend/ui    technical Node-RED Dashboard
  */
 
@@ -34,8 +35,20 @@ module.exports = {
     // HTTP-in / HTTP-response nodes (the JSON API) stay at the root.
     httpNodeRoot: "/",
 
-    // Static user-facing site, served at /.
-    httpStatic: path.join(__dirname, "..", "public"),
+    // Static user-facing site is mounted at /app so it cannot shadow
+    // /backend admin assets. Array form pins the URL prefix explicitly.
+    httpStatic: [
+        { path: path.join(__dirname, "..", "public"), root: "/app" }
+    ],
+
+    // Redirect bare "/" to the frontend so the root URL still works.
+    // Runs for any httpNode (flow-defined) request; only "/" is rewritten.
+    httpNodeMiddleware: function (req, res, next) {
+        if (req.path === "/" || req.path === "") {
+            return res.redirect(302, "/app/");
+        }
+        next();
+    },
 
     // Technical Node-RED Dashboard moves under /backend/ui.
     ui: { path: "/backend/ui" },
