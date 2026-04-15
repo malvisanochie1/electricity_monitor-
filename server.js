@@ -25,9 +25,12 @@ const nodeRedBin = path.join(
     __dirname, "node_modules", ".bin",
     process.platform === "win32" ? "node-red.cmd" : "node-red"
 );
+const userDir = process.env.NODE_RED_USER_DIR
+    || path.join(__dirname, "node-red-user");
+
 const nr = spawn(nodeRedBin, [
-    "--settings", path.join(__dirname, "config",   "settings.js"),
-    "--userDir",  path.join(__dirname, ".node-red")
+    "--settings", path.join(__dirname, "config", "settings.js"),
+    "--userDir",  userDir
 ], { stdio: "inherit", env: { ...process.env, PORT: HTTP_PORT } });
 
 nr.on("exit", (code) => {
