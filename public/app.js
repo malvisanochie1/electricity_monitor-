@@ -84,7 +84,7 @@ function renderAlerts(items) {
     if (!items.length) {
         const li = document.createElement("li");
         li.className = "empty";
-        li.textContent = "All clear — no recent high-usage alerts.";
+        li.textContent = "All clear — no excessive consumption detected.";
         ul.appendChild(li);
         return;
     }

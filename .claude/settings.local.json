@@ -54,7 +54,9 @@
       "Bash(curl -s -o /dev/null -w \"GET /style.css    %{http_code}\\\\n\" http://127.0.0.1:1880/style.css)",
       "Bash(curl -s -o /dev/null -w \"GET /app.js       %{http_code}\\\\n\" http://127.0.0.1:1880/app.js)",
       "Bash(curl -s -o /dev/null -w \"GET /backend      %{http_code}\\\\n\" http://127.0.0.1:1880/backend/)",
-      "Bash(curl -s -o /dev/null -w \"GET /backend/ui   %{http_code}\\\\n\" http://127.0.0.1:1880/backend/ui/)"
+      "Bash(curl -s -o /dev/null -w \"GET /backend/ui   %{http_code}\\\\n\" http://127.0.0.1:1880/backend/ui/)",
+      "Bash(wc -l \"C:/Users/DE-LL/OneDrive/Desktop/work/electricity_monitor/docs/\"*.md)",
+      "Bash(grep -v -E \"^\\(node_modules|\\\\.git|\\\\.claude\\)$\")"
     ]
   }
 }

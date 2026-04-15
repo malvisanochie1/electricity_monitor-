@@ -4,7 +4,7 @@
         "type": "tab",
         "label": "Electricity Monitor",
         "disabled": false,
-        "info": "Receives electricity readings over MQTT, stores them in in-memory ring buffers (flow context), displays them on a dashboard, and raises threshold alerts. No database — works on any host without native modules."
+        "info": "Electricity Usage Monitoring System — ingests meter readings over MQTT, keeps them in in-memory ring buffers, displays them on a dashboard, and raises alerts for inefficient or excessive consumption so the user can reduce power waste."
     },
     {
         "id": "mqtt.broker",
@@ -37,6 +37,7 @@
             "lockMenu": "false",
             "allowTempTheme": "true",
             "dateFormat": "DD/MM/YYYY",
+            "logo": "/app/fav-icon.png",
             "sizes": {"sx": 40, "sy": 40, "gx": 4, "gy": 4, "cx": 4, "cy": 4, "px": 0, "py": 0}
         }
     },

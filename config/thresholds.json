@@ -1,5 +1,0 @@
-{
-  "voltage_v": { "min": 210, "max": 250 },
-  "current_a": { "min": 0,   "max": 30  },
-  "power_w":   { "min": 0,   "max": 6000 }
-}

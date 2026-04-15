@@ -4,6 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Electricity Usage Monitor</title>
+    <link rel="icon" type="image/png" href="/app/fav-icon.png" />
+    <link rel="shortcut icon" type="image/png" href="/app/fav-icon.png" />
     <link rel="stylesheet" href="style.css" />
     <script
       src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"
@@ -14,10 +16,10 @@
   <body>
     <header class="topbar">
       <div class="brand">
-        <span class="bolt">&#9889;</span>
+        <img class="bolt" src="/app/fav-icon.png" alt="" />
         <div>
-          <h1>Electricity Usage Monitor</h1>
-          <p class="tagline">Your home&rsquo;s electricity at a glance</p>
+          <h1>Electricity Usage Monitoring System</h1>
+          <p class="tagline">Spot inefficient usage and reduce power waste</p>
         </div>
       </div>
       <nav>
@@ -72,14 +74,14 @@
       <section class="panel">
         <div class="panel-head">
           <h2>Power use over the last hour</h2>
-          <span class="hint">Higher line = more electricity being drawn</span>
+          <span class="hint">Watch for sustained highs — that is where waste happens</span>
         </div>
         <div class="chart-wrap"><canvas id="trend"></canvas></div>
       </section>
 
       <section class="panel">
         <div class="panel-head">
-          <h2>Recent high-usage alerts</h2>
+          <h2>Excessive consumption alerts</h2>
           <span class="hint" id="alert-summary"
             >no alerts in the last 24 hours</span
           >

@@ -1,73 +1,53 @@
 # Electricity Usage Monitoring System
 
-A single-purpose IoT system for measuring, storing, and visualizing home
-electricity usage. Readings flow from a smart meter (or the included
-simulator) over MQTT into Node-RED, which stores them in SQLite, shows
-them on a clean web dashboard, and raises alerts when usage is out of range.
+A small IoT system that monitors home electricity usage, flags inefficient
+or excessive consumption, and helps the user understand where power is
+being wasted.
 
-## Two interfaces, one product
+Readings flow from a simulated smart meter over MQTT into Node-RED, which
+holds them in memory, shows them on a mobile-friendly dashboard, and
+raises alerts when voltage, current, or power go outside safe bounds.
 
-| Route | For | What it shows |
+## What the user sees
+
+| Route | Who it is for | What it shows |
 |---|---|---|
-| **`/`** | End users | Current power, today / week / month kWh, estimated cost, trend chart, recent alerts |
-| **`/backend`** | Developers | Node-RED flow editor (ingestion, storage, thresholds) |
-| **`/backend/ui`** | Developers | Technical dashboard with live gauges and toast alerts |
-
-The user page is intentionally free of technical jargon. Everything
-implementation-related lives under `/backend`.
-
-## Folder structure
-
-```
-├── public/                        user landing page (HTML + CSS + JS)
-├── flows/electricity-monitor.json the Node-RED flow
-├── scripts/
-│   ├── broker.js                  embedded MQTT broker (aedes)
-│   ├── simulator.js               fake smart meter (Node.js)
-│   └── simulator.py               same simulator in Python (optional)
-├── config/
-│   ├── settings.js                Node-RED route configuration
-│   ├── schema.sql                 SQLite schema (reference)
-│   └── thresholds.json            alert bounds (reference)
-├── data/                          runtime SQLite db (gitignored)
-├── docs/                          architecture, setup, data model, user guide
-└── _archived_non_electricity/     original portfolio, kept for reference
-```
-
-## Prerequisites
-
-- Node.js 18+ and Node-RED 4.x (`npm install -g node-red`)
-- The first run in this repo already installed the required palettes
-  (`node-red-dashboard`, `node-red-node-sqlite`), the MQTT broker (`aedes`),
-  and the Node.js MQTT client — everything ships inside the repo.
+| **`/`** | End user (mobile-friendly) | Redirects to `/app/` |
+| **`/app/`** | End user | Current power use, today / this week / this month kWh, estimated cost, hourly trend, recent high-usage alerts |
+| **`/backend/ui`** | Technical dashboard | Live gauges for voltage / current / power and a toast pop-up for every threshold breach |
+| **`/backend`** | Developer / examiner | Node-RED flow editor — best on a desktop browser |
 
 ## Run it
 
-Open three terminals from the repo root:
-
 ```bash
-# 1. MQTT broker
-node scripts/broker.js
-
-# 2. Node-RED (serves /, /backend, /backend/ui, and /api/*)
-node-red --settings ./config/settings.js --userDir ./.node-red
-
-# 3. Fake smart meter
-node scripts/simulator.js --meter meter-01
+npm install
+node server.js
 ```
 
-Then open:
+Then open <http://localhost:1880/>.
 
-- User dashboard → <http://localhost:1880/>
-- System control → <http://localhost:1880/backend>
-- Technical dashboard → <http://localhost:1880/backend/ui>
+`server.js` starts three things in one process:
 
-## Verify it works
+1. An embedded MQTT broker (aedes) bound to `127.0.0.1:1883`.
+2. Node-RED on `$PORT` (default 1880), which ingests readings, keeps them
+   in memory, and serves the frontend + API + dashboards.
+3. A fake smart meter (`scripts/simulator.js`) that publishes a reading
+   every 2 seconds, with an occasional current spike so the alert path is
+   visible.
 
-- The **Right now** card on `/` should update every few seconds.
-- The hourly trend chart fills in; today / week / month kWh start climbing.
-- Every ~40 s the simulator injects a 45 A current spike, producing a red
-  entry under **Recent high-usage alerts**.
+No database, no native modules, no external services.
+
+## How it helps reduce power waste
+
+- The **Right now** card shows current draw in watts, so the user can see
+  the instant impact of switching an appliance on or off.
+- **Today / This week / This month** totals and estimated cost make
+  cumulative consumption visible.
+- The **hourly trend** chart exposes usage patterns — flat baselines,
+  idle-state drift, and spikes that the user can investigate.
+- **High-usage alerts** trigger when voltage, current, or power leave the
+  configured safe range, calling attention to inefficient or excessive
+  consumption.
 
 ## MQTT contract
 
@@ -84,7 +64,7 @@ Publish JSON to `electricity/<meter_id>/reading`:
 }
 ```
 
-## JSON API (used by the landing page)
+## JSON API (used by `/app/`)
 
 | Endpoint | Returns |
 |---|---|
@@ -92,16 +72,31 @@ Publish JSON to `electricity/<meter_id>/reading`:
 | `GET /api/trend?hours=1` | Array of recent readings, downsampled to ≤ 120 points |
 | `GET /api/alerts?limit=10` | Most recent threshold alerts |
 
-## What was removed
+## Thresholds
 
-Twenty-five unrelated portfolio projects (water monitoring, weather, railway,
-login/registration, carbon footprint, Zapier, WhatsApp, OPC-UA, etc.) were
-moved to `_archived_non_electricity/`. They are not part of the product.
+Hard-coded in the flow's `threshold check` function:
 
-## More docs
+| Metric | Min | Max |
+|---|---|---|
+| Voltage (V) | 210 | 250 |
+| Current (A) | 0 | 30 |
+| Power (W) | 0 | 6000 |
 
-- [`docs/architecture.md`](docs/architecture.md) — components and routing
-- [`docs/setup.md`](docs/setup.md) — first-time install on a fresh machine
-- [`docs/data-model.md`](docs/data-model.md) — MQTT payload and SQLite schema
-- [`docs/user-guide.md`](docs/user-guide.md) — walking through each screen
-"# electricity_monitor-" 
+## Deployment
+
+The repo runs unchanged on Render.com (free tier). All state is in memory
+— a redeploy or idle restart clears readings and alerts; this is a
+deliberate tradeoff to avoid native SQLite on a constrained host.
+
+## Project structure
+
+```
+├── server.js                         single process entrypoint
+├── config/settings.js                Node-RED route + middleware config
+├── flows/electricity-monitor.json    Node-RED flow (ingest, store, alert, API)
+├── scripts/simulator.js              fake smart meter
+├── public/                           /app/ landing page (HTML + CSS + JS)
+├── Dockerfile                        Render-compatible image
+├── package.json                      aedes, mqtt, node-red, node-red-dashboard
+└── README.md
+```

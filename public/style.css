@@ -30,7 +30,7 @@ body {
     border-bottom: 1px solid var(--border);
 }
 .brand { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.brand .bolt { font-size: 32px; color: var(--accent); flex-shrink: 0; }
+.brand .bolt { width: 36px; height: 36px; object-fit: contain; flex-shrink: 0; display: block; }
 .brand h1 { margin: 0; font-size: 20px; line-height: 1.2; }
 .brand .tagline { margin: 2px 0 0; font-size: 13px; color: var(--muted); }
 nav { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -123,7 +123,7 @@ footer a { color: var(--accent-d); }
 @media (max-width: 480px) {
     .topbar { padding: 12px 14px; gap: 10px; }
     .brand { gap: 10px; }
-    .brand .bolt { font-size: 26px; }
+    .brand .bolt { width: 28px; height: 28px; }
     .brand h1 { font-size: 16px; }
     .brand .tagline { display: none; }
     nav { width: 100%; justify-content: flex-start; }

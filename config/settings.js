@@ -41,16 +41,36 @@ module.exports = {
         { path: path.join(__dirname, "..", "public"), root: "/app" }
     ],
 
-    // Some lazy-loaded chunks of the Node-RED editor request tslib
-    // relative to the admin root (/backend/tslib.es6.js). Serve the real
-    // file from node_modules so the editor bundle finishes bootstrapping
-    // instead of stalling on a 404 for __extends / __awaiter helpers.
+    // Admin-side middleware:
+    //   1) Serve tslib for the Node-RED editor (lazy-loaded at the admin
+    //      root by Node-RED 4; 404 here otherwise stalls the editor).
+    //   2) Serve the shared favicon for /backend and /backend/ui so all
+    //      three surfaces (app, editor, dashboard) share one icon.
     httpAdminMiddleware: function (req, res, next) {
         if (req.path === "/tslib.es6.js" || req.path === "/tslib.js") {
             const file = path.join(
                 __dirname, "..", "node_modules", "tslib", req.path.slice(1)
             );
             return res.sendFile(file, (err) => { if (err) next(); });
+        }
+        if (/\/favicon\.(ico|png)$/.test(req.path)) {
+            return res.sendFile(
+                path.join(__dirname, "..", "public", "fav-icon.png"),
+                (err) => { if (err) next(); }
+            );
+        }
+        next();
+    },
+
+    // Node-side middleware: catch the browser's default /favicon.ico
+    // request at the root so the landing page tab also shows the icon
+    // reliably, regardless of cache state.
+    httpNodeMiddleware: function (req, res, next) {
+        if (/\/favicon\.(ico|png)$/.test(req.path)) {
+            return res.sendFile(
+                path.join(__dirname, "..", "public", "fav-icon.png"),
+                (err) => { if (err) next(); }
+            );
         }
         next();
     },
@@ -66,8 +86,14 @@ module.exports = {
     // Keep the editor usable while unauthenticated on localhost.
     // Add adminAuth here before exposing beyond your machine.
     editorTheme: {
-        page:    { title: "Electricity Monitor — System Control" },
-        header:  { title: "Electricity Monitor — System Control" },
+        page:    {
+            title:   "Electricity Monitor — System Control",
+            favicon: path.join(__dirname, "..", "public", "fav-icon.png")
+        },
+        header:  {
+            title: "Electricity Monitor — System Control",
+            image: path.join(__dirname, "..", "public", "fav-icon.png")
+        },
         projects: { enabled: false }
     },
 
