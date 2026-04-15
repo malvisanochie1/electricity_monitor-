@@ -1,10 +1,5 @@
 FROM node:20-bookworm-slim
 
-# node-red-node-sqlite compiles a native addon — needs build tools.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3 make g++ ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
-
 WORKDIR /app
 
 # 1) Root deps: aedes, mqtt, node-red itself.

@@ -4,7 +4,7 @@
         "type": "tab",
         "label": "Electricity Monitor",
         "disabled": false,
-        "info": "Receives electricity readings over MQTT, stores them in SQLite, displays them on a dashboard, and raises threshold alerts."
+        "info": "Receives electricity readings over MQTT, stores them in in-memory ring buffers (flow context), displays them on a dashboard, and raises threshold alerts. No database — works on any host without native modules."
     },
     {
         "id": "mqtt.broker",
@@ -18,12 +18,6 @@
         "protocolVersion": "4",
         "keepalive": "60",
         "cleansession": true
-    },
-    {
-        "id": "sqlite.db",
-        "type": "sqlitedb",
-        "db": "data/electricity.db",
-        "mode": "RWC"
     },
     {
         "id": "ui.base",
@@ -83,46 +77,6 @@
         "width": "12"
     },
     {
-        "id": "init.schema",
-        "type": "inject",
-        "z": "tab.elec",
-        "name": "Init schema",
-        "props": [{"p": "payload"}],
-        "repeat": "",
-        "crontab": "",
-        "once": true,
-        "onceDelay": 0.5,
-        "topic": "",
-        "payload": "",
-        "payloadType": "date",
-        "x": 140,
-        "y": 60,
-        "wires": [["init.schema.fn"]]
-    },
-    {
-        "id": "init.schema.fn",
-        "type": "function",
-        "z": "tab.elec",
-        "name": "split CREATEs",
-        "func": "const stmts = [\n  \"CREATE TABLE IF NOT EXISTS readings (id INTEGER PRIMARY KEY AUTOINCREMENT, meter_id TEXT NOT NULL, ts INTEGER NOT NULL, voltage_v REAL NOT NULL, current_a REAL NOT NULL, power_w REAL NOT NULL, energy_kwh REAL NOT NULL);\",\n  \"CREATE INDEX IF NOT EXISTS idx_readings_meter_ts ON readings(meter_id, ts);\",\n  \"CREATE TABLE IF NOT EXISTS alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, meter_id TEXT NOT NULL, ts INTEGER NOT NULL, metric TEXT NOT NULL, value REAL NOT NULL, threshold REAL NOT NULL, message TEXT NOT NULL);\"\n];\nreturn stmts.map(s => ({ topic: s }));",
-        "outputs": 1,
-        "x": 260,
-        "y": 60,
-        "wires": [["sqlite.init"]]
-    },
-    {
-        "id": "sqlite.init",
-        "type": "sqlite",
-        "z": "tab.elec",
-        "mydb": "sqlite.db",
-        "sqlquery": "msg.topic",
-        "sql": "",
-        "name": "init db",
-        "x": 340,
-        "y": 60,
-        "wires": [[]]
-    },
-    {
         "id": "mqtt.in",
         "type": "mqtt in",
         "z": "tab.elec",
@@ -139,35 +93,12 @@
         "id": "fn.validate",
         "type": "function",
         "z": "tab.elec",
-        "name": "validate + enrich",
-        "func": "const r = msg.payload;\nif (!r || typeof r !== 'object') { node.warn('invalid payload'); return null; }\nconst required = ['meter_id','voltage_v','current_a','power_w','energy_kwh'];\nfor (const k of required) {\n    if (typeof r[k] === 'undefined') { node.warn('missing field: ' + k); return null; }\n}\nr.ts = r.ts || Date.now();\nflow.set('latest', r);\nmsg.payload = r;\nreturn msg;",
+        "name": "validate + store",
+        "func": "const r = msg.payload;\nif (!r || typeof r !== 'object') { node.warn('invalid payload'); return null; }\nconst required = ['meter_id','voltage_v','current_a','power_w','energy_kwh'];\nfor (const k of required) {\n    if (typeof r[k] === 'undefined') { node.warn('missing field: ' + k); return null; }\n}\nr.ts = r.ts || Date.now();\nflow.set('latest', r);\n\n// Append to in-memory ring buffer (cap keeps memory bounded).\nconst MAX = 5000;\nconst buf = flow.get('readings') || [];\nbuf.push(r);\nif (buf.length > MAX) buf.splice(0, buf.length - MAX);\nflow.set('readings', buf);\n\nmsg.payload = r;\nreturn msg;",
         "outputs": 1,
         "x": 400,
         "y": 160,
-        "wires": [["fn.toInsert", "fn.threshold", "ui.gauge.v", "ui.gauge.i", "ui.gauge.p", "ui.text.energy", "fn.toChart"]]
-    },
-    {
-        "id": "fn.toInsert",
-        "type": "function",
-        "z": "tab.elec",
-        "name": "-> INSERT sql",
-        "func": "const r = msg.payload;\nconst esc = s => \"'\" + String(s).replace(/'/g, \"''\") + \"'\";\nmsg.topic = 'INSERT INTO readings(meter_id, ts, voltage_v, current_a, power_w, energy_kwh) VALUES(' +\n    [esc(r.meter_id), +r.ts, +r.voltage_v, +r.current_a, +r.power_w, +r.energy_kwh].join(',') + ');';\nreturn msg;",
-        "outputs": 1,
-        "x": 650,
-        "y": 100,
-        "wires": [["sqlite.insert"]]
-    },
-    {
-        "id": "sqlite.insert",
-        "type": "sqlite",
-        "z": "tab.elec",
-        "mydb": "sqlite.db",
-        "sqlquery": "msg.topic",
-        "sql": "",
-        "name": "store reading",
-        "x": 870,
-        "y": 100,
-        "wires": [[]]
+        "wires": [["fn.threshold", "ui.gauge.v", "ui.gauge.i", "ui.gauge.p", "ui.text.energy", "fn.toChart"]]
     },
     {
         "id": "fn.toChart",
@@ -297,34 +228,11 @@
         "type": "function",
         "z": "tab.elec",
         "name": "threshold check",
-        "func": "const T = {\n    voltage_v: { min: 210, max: 250 },\n    current_a: { min: 0,   max: 30  },\n    power_w:   { min: 0,   max: 6000 }\n};\nconst r = msg.payload;\nconst alerts = [];\nfor (const key of Object.keys(T)) {\n    const v = r[key];\n    if (v < T[key].min) alerts.push({ metric: key, value: v, threshold: T[key].min, message: r.meter_id + ': ' + key + ' below min (' + v + ' < ' + T[key].min + ')' });\n    if (v > T[key].max) alerts.push({ metric: key, value: v, threshold: T[key].max, message: r.meter_id + ': ' + key + ' above max (' + v + ' > ' + T[key].max + ')' });\n}\nif (!alerts.length) return null;\nreturn alerts.map(a => ({ payload: a.message, alert: { meter_id: r.meter_id, ts: r.ts, ...a } }));",
+        "func": "const T = {\n    voltage_v: { min: 210, max: 250 },\n    current_a: { min: 0,   max: 30  },\n    power_w:   { min: 0,   max: 6000 }\n};\nconst r = msg.payload;\nconst found = [];\nfor (const key of Object.keys(T)) {\n    const v = r[key];\n    if (v < T[key].min) found.push({ metric: key, value: v, threshold: T[key].min, message: r.meter_id + ': ' + key + ' below min (' + v + ' < ' + T[key].min + ')' });\n    if (v > T[key].max) found.push({ metric: key, value: v, threshold: T[key].max, message: r.meter_id + ': ' + key + ' above max (' + v + ' > ' + T[key].max + ')' });\n}\nif (!found.length) return null;\n\n// Persist alerts in flow context (ring buffer).\nconst MAX = 500;\nconst store = flow.get('alerts') || [];\nfor (const a of found) store.push({ meter_id: r.meter_id, ts: r.ts, ...a });\nif (store.length > MAX) store.splice(0, store.length - MAX);\nflow.set('alerts', store);\n\nreturn found.map(a => ({ payload: a.message }));",
         "outputs": 1,
         "x": 400,
         "y": 400,
-        "wires": [["fn.alertInsert", "ui.toast"]]
-    },
-    {
-        "id": "fn.alertInsert",
-        "type": "function",
-        "z": "tab.elec",
-        "name": "-> alerts INSERT",
-        "func": "const a = msg.alert;\nconst esc = s => \"'\" + String(s).replace(/'/g, \"''\") + \"'\";\nmsg.topic = 'INSERT INTO alerts(meter_id, ts, metric, value, threshold, message) VALUES(' +\n    [esc(a.meter_id), +a.ts, esc(a.metric), +a.value, +a.threshold, esc(a.message)].join(',') + ');';\nreturn msg;",
-        "outputs": 1,
-        "x": 640,
-        "y": 380,
-        "wires": [["sqlite.alertInsert"]]
-    },
-    {
-        "id": "sqlite.alertInsert",
-        "type": "sqlite",
-        "z": "tab.elec",
-        "mydb": "sqlite.db",
-        "sqlquery": "msg.topic",
-        "sql": "",
-        "name": "store alert",
-        "x": 870,
-        "y": 380,
-        "wires": [[]]
+        "wires": [["ui.toast"]]
     },
     {
         "id": "ui.toast",
@@ -355,39 +263,16 @@
         "swaggerDoc": "",
         "x": 160,
         "y": 560,
-        "wires": [["api.summary.sql"]]
-    },
-    {
-        "id": "api.summary.sql",
-        "type": "function",
-        "z": "tab.elec",
-        "name": "build summary SQL",
-        "func": "msg.topic = \"SELECT \" +\n  \"(SELECT IFNULL(MAX(energy_kwh)-MIN(energy_kwh),0) FROM readings WHERE ts > strftime('%s','now','start of day')*1000) AS today_kwh, \" +\n  \"(SELECT IFNULL(MAX(energy_kwh)-MIN(energy_kwh),0) FROM readings WHERE ts > (strftime('%s','now')-7*86400)*1000) AS week_kwh, \" +\n  \"(SELECT IFNULL(MAX(energy_kwh)-MIN(energy_kwh),0) FROM readings WHERE ts > (strftime('%s','now')-30*86400)*1000) AS month_kwh, \" +\n  \"(SELECT COUNT(*) FROM alerts WHERE ts > (strftime('%s','now')-86400)*1000) AS alert_count_24h;\";\nreturn msg;",
-        "outputs": 1,
-        "x": 380,
-        "y": 560,
-        "wires": [["api.summary.db"]]
-    },
-    {
-        "id": "api.summary.db",
-        "type": "sqlite",
-        "z": "tab.elec",
-        "mydb": "sqlite.db",
-        "sqlquery": "msg.topic",
-        "sql": "",
-        "name": "query totals",
-        "x": 600,
-        "y": 560,
         "wires": [["api.summary.shape"]]
     },
     {
         "id": "api.summary.shape",
         "type": "function",
         "z": "tab.elec",
-        "name": "shape summary",
-        "func": "const TARIFF = 0.15; // cost per kWh (edit to match your tariff)\nconst row = (msg.payload && msg.payload[0]) || {};\nconst latest = flow.get('latest') || null;\nconst today = row.today_kwh || 0;\nconst week  = row.week_kwh  || 0;\nconst month = row.month_kwh || 0;\nmsg.payload = {\n    current: latest,\n    today_kwh: +today.toFixed(3),\n    week_kwh:  +week.toFixed(3),\n    month_kwh: +month.toFixed(3),\n    today_cost: +(today*TARIFF).toFixed(2),\n    week_cost:  +(week*TARIFF).toFixed(2),\n    month_cost: +(month*TARIFF).toFixed(2),\n    tariff_per_kwh: TARIFF,\n    alert_count_24h: row.alert_count_24h || 0\n};\nmsg.headers = { 'Content-Type': 'application/json' };\nreturn msg;",
+        "name": "build summary",
+        "func": "const TARIFF = 0.15; // cost per kWh (edit to match your tariff)\nconst readings = flow.get('readings') || [];\nconst latest   = flow.get('latest')   || null;\nconst alerts   = flow.get('alerts')   || [];\nconst now = Date.now();\n\nconst dayStart = new Date(); dayStart.setHours(0,0,0,0);\nconst kwhSince = (sinceTs) => {\n    const slice = readings.filter(x => x.ts >= sinceTs);\n    if (slice.length < 2) return 0;\n    return Math.max(0, slice[slice.length-1].energy_kwh - slice[0].energy_kwh);\n};\nconst today = kwhSince(dayStart.getTime());\nconst week  = kwhSince(now - 7*86400000);\nconst month = kwhSince(now - 30*86400000);\nconst alert_count_24h = alerts.filter(a => a.ts > now - 86400000).length;\n\nmsg.payload = {\n    current: latest,\n    today_kwh: +today.toFixed(3),\n    week_kwh:  +week.toFixed(3),\n    month_kwh: +month.toFixed(3),\n    today_cost: +(today*TARIFF).toFixed(2),\n    week_cost:  +(week*TARIFF).toFixed(2),\n    month_cost: +(month*TARIFF).toFixed(2),\n    tariff_per_kwh: TARIFF,\n    alert_count_24h\n};\nmsg.headers = { 'Content-Type': 'application/json' };\nreturn msg;",
         "outputs": 1,
-        "x": 800,
+        "x": 400,
         "y": 560,
         "wires": [["api.summary.out"]]
     },
@@ -413,39 +298,16 @@
         "swaggerDoc": "",
         "x": 160,
         "y": 620,
-        "wires": [["api.trend.sql"]]
-    },
-    {
-        "id": "api.trend.sql",
-        "type": "function",
-        "z": "tab.elec",
-        "name": "build trend SQL",
-        "func": "const hours = Math.min(24, Math.max(1, parseInt((msg.req && msg.req.query && msg.req.query.hours) || '1', 10)));\nmsg.topic = \"SELECT ts, voltage_v, current_a, power_w FROM readings WHERE ts > (strftime('%s','now')-\" + hours + \"*3600)*1000 ORDER BY ts ASC;\";\nreturn msg;",
-        "outputs": 1,
-        "x": 370,
-        "y": 620,
-        "wires": [["api.trend.db"]]
-    },
-    {
-        "id": "api.trend.db",
-        "type": "sqlite",
-        "z": "tab.elec",
-        "mydb": "sqlite.db",
-        "sqlquery": "msg.topic",
-        "sql": "",
-        "name": "query trend",
-        "x": 590,
-        "y": 620,
         "wires": [["api.trend.shape"]]
     },
     {
         "id": "api.trend.shape",
         "type": "function",
         "z": "tab.elec",
-        "name": "downsample",
-        "func": "const rows = msg.payload || [];\nconst max = 120;\nlet out = rows;\nif (rows.length > max) {\n    const step = Math.ceil(rows.length / max);\n    out = rows.filter((_, i) => i % step === 0);\n}\nmsg.payload = out;\nmsg.headers = { 'Content-Type': 'application/json' };\nreturn msg;",
+        "name": "build trend",
+        "func": "const hours = Math.min(24, Math.max(1, parseInt((msg.req && msg.req.query && msg.req.query.hours) || '1', 10)));\nconst since = Date.now() - hours*3600000;\nconst rows = (flow.get('readings') || [])\n    .filter(r => r.ts >= since)\n    .map(r => ({ ts: r.ts, voltage_v: r.voltage_v, current_a: r.current_a, power_w: r.power_w }));\nconst max = 120;\nlet out = rows;\nif (rows.length > max) {\n    const step = Math.ceil(rows.length / max);\n    out = rows.filter((_, i) => i % step === 0);\n}\nmsg.payload = out;\nmsg.headers = { 'Content-Type': 'application/json' };\nreturn msg;",
         "outputs": 1,
-        "x": 790,
+        "x": 400,
         "y": 620,
         "wires": [["api.trend.out"]]
     },
@@ -471,39 +333,16 @@
         "swaggerDoc": "",
         "x": 160,
         "y": 680,
-        "wires": [["api.alerts.sql"]]
-    },
-    {
-        "id": "api.alerts.sql",
-        "type": "function",
-        "z": "tab.elec",
-        "name": "build alerts SQL",
-        "func": "const limit = Math.min(100, Math.max(1, parseInt((msg.req && msg.req.query && msg.req.query.limit) || '10', 10)));\nmsg.topic = \"SELECT ts, metric, value, threshold, message FROM alerts ORDER BY id DESC LIMIT \" + limit + \";\";\nreturn msg;",
-        "outputs": 1,
-        "x": 370,
-        "y": 680,
-        "wires": [["api.alerts.db"]]
-    },
-    {
-        "id": "api.alerts.db",
-        "type": "sqlite",
-        "z": "tab.elec",
-        "mydb": "sqlite.db",
-        "sqlquery": "msg.topic",
-        "sql": "",
-        "name": "query alerts",
-        "x": 590,
-        "y": 680,
         "wires": [["api.alerts.shape"]]
     },
     {
         "id": "api.alerts.shape",
         "type": "function",
         "z": "tab.elec",
-        "name": "pass-through",
-        "func": "msg.payload = msg.payload || [];\nmsg.headers = { 'Content-Type': 'application/json' };\nreturn msg;",
+        "name": "build alerts",
+        "func": "const limit = Math.min(100, Math.max(1, parseInt((msg.req && msg.req.query && msg.req.query.limit) || '10', 10)));\nconst alerts = flow.get('alerts') || [];\nmsg.payload = alerts.slice(-limit).reverse().map(a => ({\n    ts: a.ts, metric: a.metric, value: a.value, threshold: a.threshold, message: a.message\n}));\nmsg.headers = { 'Content-Type': 'application/json' };\nreturn msg;",
         "outputs": 1,
-        "x": 790,
+        "x": 400,
         "y": 680,
         "wires": [["api.alerts.out"]]
     },
